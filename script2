@@ -1,0 +1,395 @@
+var replaceFiles = [
+        {   from:  new RegExp('^.*/resources/Vdom/_private/Synchronizer/resources/Debug0.js'),
+            to: 'c:/fiddler/replace/Debug.js'
+            // includes: new RegExp('Debug.js'),
+            // excludes: new RegExp('Debug1.js')
+        },
+        {   from:  new RegExp('^.*/resources/(.*/)(.+)$','i'),
+            to: 'c:/fiddler/replace/$1$2',
+            includes: [ new RegExp('/Debug.js') ],
+            onReplace:  { hideRow: false, backcolor: '#009900', color: '#000', bold: true  }, // стили строки при успешной подмене файла
+            onError:    { hideRow: false, backcolor: '#550000', color: '#000', bold: true  }  // стили строки при ошибках при подмене файла
+        }
+    ];
+
+var collectFiles = [
+        { 
+            includes: [ new RegExp("11111/resources/Env/_Env/.*\.js",'i'),
+                        new RegExp("111111/resources/UI/.*\.js",'i')  ]
+        },
+        { 
+            includes: [ new RegExp("11111/resources/Vdom/.*\.js",'i') ]
+        },
+    ];
+
+var cacheFiles = [
+        {
+            includes: [ new RegExp("/cdn/.*\.js",'i') ],
+            to: 'g:\\fiddler\\cache_cdn\\',
+            onSaveToCache:   { hideRow: false, backcolor: 'yellow', color: '#000',  bold: true  }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: false, backcolor: '#559955', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+        {   
+            includes: [ new RegExp('/resources/Vdom/.*\.js','i'),
+                        new RegExp('/resources/Types/.*\.js','i') ],
+            to: 'g:\\fiddler\\cache_other\\',
+            onSaveToCache:   { hideRow: false, backcolor: '#ffbbff', color: '#000', bold: false }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: true , backcolor: '#aaffaa', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+    ];
+
+// testOptions - проверяет каждую опцию из replaceFiles/collectFiles/cacheFiles
+//               могут быть заданы параметры includes: RegExp[], excludes: RegExp[],
+function checkOptions(opt: Object):Object {
+    return opt;
+}
+
+// testFile - проверяет соответствует ли запрашиваемый файл в Session критериям в opt.includes/excludes
+function testFile(opt: Object, oSession: Session):boolean {
+    var url = oSession.fullUrl;
+    var ok = false;
+    var includes = opt.includes;
+    if(includes && includes.length > 0) {
+        for(var i = 0; i < includes.length; i++) {
+            var re = includes[i];
+            var b = re.test(url);
+            if( b ) {
+                ok = true;
+                break;
+            }
+        }
+        if(!ok) return false;
+    }
+    var excludes = opt.excludes;
+    if(excludes && excludes.length > 0) {
+        var excludes = opt.excludes;
+        for(var i = 0; i < excludes.length; i++) {
+            var re = excludes[i];
+            var b = re.test(url);
+            if( b ) return false;
+        }
+    }
+    return true;
+}
+
+// set row style - задает указанный стиль для текущей строки
+function setRowStyle(opt: Object, oSession: Session):void {
+    if(!opt) return;
+    if(opt.hideRow) {
+        oSession['ui-hide'] = true;
+        return;
+    }
+    oSession["ui-backcolor"] = opt.backcolor;
+    oSession["ui-color"] = opt.color;
+    oSession["ui-bold"] = opt.bold;
+}
+
+
+import System;
+import System.Windows.Forms;
+import Fiddler;
+
+var fileExists = System.IO.File.Exists;
+var dirExists = System.IO.Directory.Exists;
+var GetDirectoryName = System.IO.Path.GetDirectoryName;
+
+function wlog(msg: String) {
+    WriteToFile("C:/fiddler/log.txt",msg+"\n", 'a');
+}
+
+function WriteToFile(file: String, text: String, aORw: String) { // aORw=='a' || aORw=='w'  - a - append, w - write to file
+    if( !CreatePathForFile(file) ) return 0;
+    if( !aORw || aORw === 'a' ) return System.IO.File.AppendAllText(file,text);
+    if( aORw === 'w' ) return System.IO.File.WriteAllText(file,text);
+}
+
+function CreatePathForFile(file: String) {
+    return CreatePath( GetDirectoryName(file) );
+}
+
+function CreatePath(path: String) {
+    if( !path ) return 0;
+    if( !dirExists(path) ) {
+        var basePath = GetDirectoryName(path);
+        if( !dirExists(basePath) ) {
+            var b = CreatePath(basePath);
+            if( !b ) return 0;
+        }
+        return System.IO.Directory.CreateDirectory(path);
+    }
+    return 1;
+}
+
+// возвращает относительный путь к файлу из урл для сохранения (вместе с https_название_сайта/и/т/д)
+//   extension:String - строка на которую будет заканчиваться файл если путь к нему заканчивается на /
+function getFileSavePathFromUrl(oSession: Session,extension:String):String {
+    var url = oSession.fullUrl;
+    var file = url.replace(/[\?=\*].*$/,''); // удаляем все после ? или = или *
+    file = file.replace(/(:\/\/|:)/g,'_'); // заменяем на _ все "://" или ":"
+    file = file.replace(/\/+/g,'/');  // заменяем все двойные и более слеши на одинарный
+    if(file.length > 200) file = file.substr(0,200); // путь к файлу должен быть не более 260 символов
+    if(file.length > 0 && file[file.length-1] == '/') file += extension;
+    return file;
+}
+
+
+class Handlers {
+    // набор обработчиков для каждого типа
+    static public var replacers = new Array();
+    static public var collects = new Array();
+    static public var caches = new Array();
+    static public var isLoaded = 0;
+    
+    static function Main() {
+        var i:int;
+        var today: Date = new Date();
+        FiddlerObject.StatusText = " CustomRules.js was loaded at: " + today;
+        initWorkers();
+    }
+
+    static function initWorkers() {
+        if( Handlers.isLoaded ) return;
+        for(var i = 0; i < collectFiles.length; i++) {
+            var collect:CollectFile = Handlers.collects[i];
+            if( !collect ) {
+                var q = collectFiles[i];
+                q.n = i;
+                Handlers.collects[i] = new CollectFile(q);
+            }
+        }
+    
+        for(var i = 0; i < replaceFiles.length; i++){
+            var replacer:ReplaceFile = Handlers.replacers[i];
+            if( !replacer ) {
+                var q = replaceFiles[i];
+                q.n = i;
+                Handlers.replacers[i] = new ReplaceFile(q);
+            }
+        }
+    
+        for(var i = 0; i < cacheFiles.length; i++){
+            var cache:CacheFile = Handlers.caches[i];
+            if( !cache ) {
+                var q = cacheFiles[i];
+                q.n = i;
+                Handlers.caches[i] = new CacheFile(q);
+            }
+        }
+        Handlers.isLoaded = 1;
+        alert('initWorkers',Handlers);
+    }
+    
+    static function LoadReplaceFile(oSession: Session):boolean {
+        for(var i = 0; i < replaceFiles.length; i++){
+            var replacer:ReplaceFile = Handlers.replacers[i];
+            if( replacer.loadResponse(oSession) ) return true;
+        }
+        return false;
+    }
+
+    static function LoadCollectFile(oSession: Session):boolean {
+        for(var i = 0; i < collectFiles.length; i++) {
+            var collect:CollectFile = Handlers.collects[i];
+            if( collect.loadResponse(oSession) ) return true;
+        }
+        return false;
+    }
+        
+    static function LoadCacheFile(oSession: Session):boolean {
+        for(var i = 0; i < cacheFiles.length; i++){
+            var cacher:CacheFile = Handlers.caches[i];
+            if( cacher.loadResponse(oSession) ) return true;
+        }
+        return false;
+    }
+
+    // The following snippet demonstrates a custom-bound column for the Web Sessions list.
+    // See http://fiddler2.com/r/?fiddlercolumns for more info
+    public static BindUIColumn("Method", 60)
+    function FillMethodColumn(oS: Session): String {
+        return oS.RequestMethod;
+    }
+    
+    public static BindUIColumn("Time", 60)
+    function FillTimeColumn(oS: Session): String {
+        var d:double = (oS.Timers.ServerDoneResponse.ToBinary() - oS.Timers.ClientBeginRequest.ToBinary())/10000;
+        var n = d.toString().replace(/\..*$/,'');  // Math.Round(d,0)
+        if( d > 24 * 60 * 60 *1000 ) n = '-';
+        return n;
+    }
+    
+    public static BindUIColumn("info", 200)
+    function FillinfoColumn(oS: Session): String {
+        var n = '';
+        if( typeof(oS['_#replace'])!='undefined' ){
+            n = 'replace: ['+oS['_#replace']+'] '+oS['_#info'];
+        }
+        if( typeof(oS['_#collect'])!='undefined' ){
+            n = 'collect: ['+oS['_#collect']+'] '+oS['_#info'];
+        }
+        if( typeof(oS['_#cache'])!='undefined' ){
+            n = 'cache: ['+oS['_#cache']+'] '+oS['_#info'];
+        }
+        
+        if( oS["_#error"] ){
+            oS["ui-backcolor"] = "#aa5555";
+            oS["ui-color"] = "#aaeeee";
+            oS["ui-bold"] = true;
+            n += oS["_#error"];
+        }
+        
+        return n;
+    }
+        
+
+    
+    static function OnBeforeRequest(oSession: Session) {
+        if( LoadReplaceFile(oSession) ) return;
+        if( LoadCollectFile(oSession) ) return;
+        if( LoadCacheFile(oSession) ) return;
+        
+        // var arr = Handlers.arr;
+        // arr.push(oSession.fullUrl);
+        // if(arr.length > 20) {
+        //     wlog(arr.join('\n') + '\n=====================================\n');
+        //     Handlers.arr = new Array();
+        // }
+        
+        oSession.oRequest.headers.Remove("If-None-Match");
+        oSession.oRequest.headers.Remove("If-Modified-Since");
+        oSession.oRequest["Pragma"] = "no-cache";
+        //oSession["ui-bold"]="QuickExec";
+        oSession["ui-backcolor"] = "Lavender";
+        //oSession["ui-italic"] = "yup";
+        //oSession["ui-color"] = "red";
+        
+        if(0){
+            oSession.utilCreateResponseAndBypassServer();
+            oSession.responseCode = 304;
+            oSession["ui-backcolor"] = "Lavender";
+        }
+    }
+
+
+    static function OnDone(oSession: Session) {
+        var type = oSession['_#onDoneFnc'];
+        if( type == 'cache' ){
+            var i:int = oSession['_#cache'];
+            var cache:CacheFile = Handlers.caches[i];
+            cache.onDoneFnc(oSession);
+        }else if( type == 'collect' ){
+            var j:int = oSession['_#collect'];
+            var collect:CollectFile = Handlers.collects[j];
+            collect.onDoneFnc(oSession);
+        }
+    }
+}
+
+
+class ReplaceFile {
+    private var opt;
+    private var type;
+    function ReplaceFile(opt: Object) {
+        opt.name = 'ReplaceFile options' + opt.n;
+        this.opt = checkOptions(opt);
+        var to = this.opt.to
+        if( /^[a-z]:(\\|\/)/i.test(to) ) {
+            this.type = 'localfile';
+        }else{
+            alert('не верно задан параметр to',this.opt);
+        }
+    }
+    public function loadResponse(oSession: Session):boolean {
+        if( !testFile(this.opt, oSession) ) return false;
+        var url = oSession.fullUrl;
+        var to = this.opt.to
+        var newUrl = url.replace( this.opt.from, to);
+        if( newUrl == url ) return false;
+        oSession['_#replace'] = this.opt.n;
+        if( this.type == 'localfile' ) {
+            var filePath = newUrl.replace(/\?.*$/,'');
+            var b:boolean = oSession.LoadResponseFromFile(filePath);
+            if( !b ){
+                setRowStyle(this.opt.onError,oSession);
+                oSession["_#error"] = 'err load from file: ' + filePath;
+            }else{
+                setRowStyle(this.opt.onReplace,oSession);
+                oSession["_#info"] = filePath;
+            }
+            oSession['_#responseIsAlreadyLoaded'] = 1;
+        } else {
+            setRowStyle(this.opt.onReplace,oSession);
+            oSession.fullUrl = newUrl;
+            oSession["_#info"] = newUrl;
+            oSession['_#responseIsAlreadyLoaded'] = 0;
+        }
+        return true;
+    }
+}
+
+class CollectFile {
+    private var filesList = new Array();
+    private var filesLoaded = Object();
+    private var opt;
+
+    function CollectFile(opt: Object) {
+        opt.name = 'CollectFile options' + opt.n;
+        this.opt = checkOptions(opt);
+    }
+    public function addFile(oSession: Session):void {
+        oSession.utilDecodeResponse();
+
+        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+        return;
+    }
+    public function loadResponse(oSession: Session):boolean {
+        if( !testFile(this.opt, oSession) ) return false;
+        oSession['_#collect'] = this.opt.n;
+        oSession['_#responseIsAlreadyLoaded'] = 1;
+        return false;
+        oSession.utilDecodeResponse();
+
+        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+        return false;
+    }
+    public function onDoneFnc(oSession: Session):boolean {
+        oSession.utilDecodeResponse();
+        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+        WriteToFile(oSession['_#cachepath'],oBody,'w');
+        alert(oSession['_#cachepath'],this.opt.name);
+    }
+}
+
+
+class CacheFile {
+    private var opt;
+    function CacheFile(opt: Object) {
+        opt.name = 'CacherFile options' + opt.n;
+        this.opt = checkOptions(opt);
+    }
+    public function loadResponse(oSession: Session):boolean {
+        if( !testFile(this.opt, oSession) ) return false;
+        oSession['_#cache'] = this.opt.n;
+        var filePath = this.opt.to + getFileSavePathFromUrl(oSession,'.cache');
+        if( fileExists(filePath) ) {
+            setRowStyle(this.opt.onSaveToCache,oSession);
+            oSession["_#info"] = 'load: '+filePath;
+            oSession.LoadResponseFromFile(filePath);
+            return true;
+        }
+        setRowStyle(this.opt.onLoadFromCache,oSession);
+        oSession['_#info'] = 'add: '+filePath;
+        oSession['_#cachepath'] = filePath;
+        oSession['_#onDoneFnc'] = 'cache';
+    }
+    public function onDoneFnc(oSession: Session):boolean {
+        oSession.utilDecodeResponse();
+        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+        WriteToFile(oSession['_#cachepath'],oBody,'w');
+    }
+}
+
+function alert(msg,obj:Object):void {
+    if(obj && obj.name) msg += '\nname: '+obj.name;
+    FiddlerObject.alert(msg+'\n'+obj);
+}
