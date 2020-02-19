@@ -7,10 +7,44 @@ var replaceFiles = [
         {   from:  new RegExp('^.*/resources/(.*/)(.+)$','i'),
             to: 'c:/fiddler/replace/$1$2',
             includes: [ new RegExp('/Debug.js') ],
-            onReplace:  { hideRow: false, backcolor: '#009900', color: '#000', bold: true  }, // стили строки при успешной подмене файла
+            onReplace:  { hideRow: false, backcolor: '#17BF13', color: '#000', bold: true  }, // стили строки при успешной подмене файла
             onError:    { hideRow: false, backcolor: '#550000', color: '#000', bold: true  }  // стили строки при ошибках при подмене файла
         }
     ];
+
+var cacheFiles = [
+        {
+            includes: [ new RegExp('\.ru/cdn/.*\\.js',''),
+                        new RegExp('\.ru/cdn/.*\\.woff2','') ],
+            to: 'g:/fiddler/cache_cdn/',
+            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: false, backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+    
+        {
+            includes: [ new RegExp('\\.png$') ],
+            to: 'g:/fiddler/cache_images/',
+            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: false, backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+
+        {
+            includes: [ new RegExp('/resources/Vdom/.*\\.(js|wml|css)'),
+                        new RegExp('/resources/Controls/.*\\.(js|wml|css)'),
+                        new RegExp('/resources/Browser/.*\\.js'),
+                        new RegExp('/resources/UI/.*\\.(js|wml)'),
+                        new RegExp('/resources/Env/.*\\.js'),
+                        new RegExp('/resources/I18n/.*\\.js'),
+                        new RegExp('/resources/View/.*\\.js'),
+                        new RegExp('/resources/SBIS3\\.Plugin/.*\\.js'),
+                        new RegExp('/resources/Types/.*\\.js') ],
+            to: 'g:/fiddler/cache_other/',
+            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: true , backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+
+    ];
+
 
 var collectFiles = [
         { 
@@ -19,22 +53,6 @@ var collectFiles = [
         },
         { 
             includes: [ new RegExp("11111/resources/Vdom/.*\.js",'i') ]
-        },
-    ];
-
-var cacheFiles = [
-        {
-            includes: [ new RegExp("/cdn/.*\.js",'i') ],
-            to: 'g:\\fiddler\\cache_cdn\\',
-            onSaveToCache:   { hideRow: false, backcolor: 'yellow', color: '#000',  bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: false, backcolor: '#559955', color: '#000', bold: false }  // стили строки при загрузке из кэша
-        },
-        {   
-            includes: [ new RegExp('/resources/Vdom/.*\.js','i'),
-                        new RegExp('/resources/Types/.*\.js','i') ],
-            to: 'g:\\fiddler\\cache_other\\',
-            onSaveToCache:   { hideRow: false, backcolor: '#ffbbff', color: '#000', bold: false }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: true , backcolor: '#aaffaa', color: '#000', bold: false }  // стили строки при загрузке из кэша
         },
     ];
 
@@ -72,16 +90,16 @@ function testFile(opt: Object, oSession: Session):boolean {
     return true;
 }
 
-// set row style - задает указанный стиль для текущей строки
+// set row style - проверяет соответствует ли запрашиваемый файл в Session критериям в opt.includes/excludes
 function setRowStyle(opt: Object, oSession: Session):void {
     if(!opt) return;
     if(opt.hideRow) {
         oSession['ui-hide'] = true;
         return;
     }
-    oSession["ui-backcolor"] = opt.backcolor;
     oSession["ui-color"] = opt.color;
-    oSession["ui-bold"] = opt.bold;
+    if(opt.bold) oSession["ui-bold"] = opt.bold;
+    oSession["ui-backcolor"] = opt.backcolor;
 }
 
 
@@ -222,13 +240,13 @@ class Handlers {
     function FillinfoColumn(oS: Session): String {
         var n = '';
         if( typeof(oS['_#replace'])!='undefined' ){
-            n = 'replace: ['+oS['_#replace']+'] '+oS['_#info'];
+            n = '[replace rule '+oS['_#replace']+'] '+oS['_#info'];
         }
         if( typeof(oS['_#collect'])!='undefined' ){
-            n = 'collect: ['+oS['_#collect']+'] '+oS['_#info'];
+            n = '[collect rule '+oS['_#collect']+'] '+oS['_#info'];
         }
         if( typeof(oS['_#cache'])!='undefined' ){
-            n = 'cache: ['+oS['_#cache']+'] '+oS['_#info'];
+            n = '[cache rule '+oS['_#cache']+'] '+oS['_#info'];
         }
         
         if( oS["_#error"] ){
@@ -254,16 +272,16 @@ class Handlers {
         //     wlog(arr.join('\n') + '\n=====================================\n');
         //     Handlers.arr = new Array();
         // }
-        
-        oSession.oRequest.headers.Remove("If-None-Match");
-        oSession.oRequest.headers.Remove("If-Modified-Since");
-        oSession.oRequest["Pragma"] = "no-cache";
-        //oSession["ui-bold"]="QuickExec";
-        oSession["ui-backcolor"] = "Lavender";
-        //oSession["ui-italic"] = "yup";
-        //oSession["ui-color"] = "red";
-        
         if(0){
+            oSession.oRequest.headers.Remove("If-None-Match");
+            oSession.oRequest.headers.Remove("If-Modified-Since");
+            oSession.oRequest["Pragma"] = "no-cache";
+            //oSession["ui-bold"]="QuickExec";
+            oSession["ui-backcolor"] = "Lavender";
+            //oSession["ui-italic"] = "yup";
+            //oSession["ui-color"] = "red";
+            
+        
             oSession.utilCreateResponseAndBypassServer();
             oSession.responseCode = 304;
             oSession["ui-backcolor"] = "Lavender";
@@ -372,20 +390,23 @@ class CacheFile {
         oSession['_#cache'] = this.opt.n;
         var filePath = this.opt.to + getFileSavePathFromUrl(oSession,'.cache');
         if( fileExists(filePath) ) {
-            setRowStyle(this.opt.onSaveToCache,oSession);
+            setRowStyle(this.opt.onLoadFromCache, oSession);
             oSession["_#info"] = 'load: '+filePath;
             oSession.LoadResponseFromFile(filePath);
             return true;
         }
-        setRowStyle(this.opt.onLoadFromCache,oSession);
+        setRowStyle(this.opt.onSaveToCache, oSession);
         oSession['_#info'] = 'add: '+filePath;
         oSession['_#cachepath'] = filePath;
         oSession['_#onDoneFnc'] = 'cache';
+        return true;
     }
     public function onDoneFnc(oSession: Session):boolean {
+        var outFilePath = oSession['_#cachepath'];
+        if( fileExists(outFilePath) ) return true;
         oSession.utilDecodeResponse();
         var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
-        WriteToFile(oSession['_#cachepath'],oBody,'w');
+        return WriteToFile(outFilePath,oBody,'w');
     }
 }
 
