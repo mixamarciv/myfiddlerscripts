@@ -1,3 +1,4 @@
+
 var replaceFiles = [
         {   from:  new RegExp('^.*/resources/Vdom/_private/Synchronizer/resources/Debug0.js'),
             to: 'c:/fiddler/replace/Debug.js'
@@ -6,8 +7,8 @@ var replaceFiles = [
         },
         {   from:  new RegExp('^.*/resources/(.*/)(.+)$','i'),
             to: 'c:/fiddler/replace/$1$2',
-            includes: [ new RegExp('/Debug.js') ],
-            onReplace:  { hideRow: false, backcolor: '#17BF13', color: '#000', bold: true  }, // стили строки при успешной подмене файла
+            includes: [ new RegExp('/Debug000.js') ],
+            onReplace:  { hideRow: false, backcolor: '#17AF13', color: '#000', bold: true  }, // стили строки при успешной подмене файла
             onError:    { hideRow: false, backcolor: '#550000', color: '#000', bold: true  }  // стили строки при ошибках при подмене файла
         }
     ];
@@ -17,42 +18,47 @@ var cacheFiles = [
             includes: [ new RegExp('\.ru/cdn/.*\\.js',''),
                         new RegExp('\.ru/cdn/.*\\.woff2','') ],
             to: 'g:/fiddler/cache_cdn/',
-            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: false, backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+            onSaveToCache:   { hideRow: false, backcolor: '#F9A900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
         },
     
         {
             includes: [ new RegExp('\\.png$') ],
             to: 'g:/fiddler/cache_images/',
             onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: false, backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
         },
 
         {
             includes: [ new RegExp('/resources/Vdom/.*\\.(js|wml|css)'),
                         new RegExp('/resources/Controls/.*\\.(js|wml|css)'),
                         new RegExp('/resources/Browser/.*\\.js'),
+                        new RegExp('/resources/Router/.*\\.(js|wml)'),
                         new RegExp('/resources/UI/.*\\.(js|wml)'),
+                        new RegExp('/resources/WS\\.Core/.*'),
+                        new RegExp('/resources/AuthFramework/.*'),
+                        new RegExp('/resources/ParametersWebAPI/.*'),
+                        new RegExp('/resources/EngineLanguage/.*'),
                         new RegExp('/resources/Env/.*\\.js'),
                         new RegExp('/resources/I18n/.*\\.js'),
                         new RegExp('/resources/View/.*\\.js'),
                         new RegExp('/resources/SBIS3\\.Plugin/.*\\.js'),
                         new RegExp('/resources/Types/.*\\.js') ],
             to: 'g:/fiddler/cache_other/',
+            saveWithHeaders: true,
             onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: true , backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
         },
 
     ];
 
-
 var collectFiles = [
-        { 
-            includes: [ new RegExp("11111/resources/Env/_Env/.*\.js",'i'),
-                        new RegExp("111111/resources/UI/.*\.js",'i')  ]
-        },
-        { 
-            includes: [ new RegExp("11111/resources/Vdom/.*\.js",'i') ]
+        {   
+            to: 'g:/fiddler/collectFiles/',  // куда сохранять файлы которые после будут собираться в один
+            includes: [ new RegExp('/resources/.*\\.js\\?')  ],
+            excludes: [ new RegExp('/resources/Guest/')  ],
+            onSaveToCollect:   { hideRow: false, backcolor: '#F95500', color: '#000', bold: true  }, // стили строки до загрузки
+            onLoadFromCollect: { hideRow: false, backcolor: '#A55589', color: '#000', bold: false }  // стили строки при загрузке
         },
     ];
 
@@ -153,10 +159,8 @@ function getFileSavePathFromUrl(oSession: Session,extension:String):String {
 
 class Handlers {
     // набор обработчиков для каждого типа
-    static public var replacers = new Array();
-    static public var collects = new Array();
-    static public var caches = new Array();
-    static public var isLoaded = 0;
+    static public var workers = new Array();
+    static public var workersLoaded = 0;
     
     static function Main() {
         var i:int;
@@ -166,59 +170,21 @@ class Handlers {
     }
 
     static function initWorkers() {
-        if( Handlers.isLoaded ) return;
-        for(var i = 0; i < collectFiles.length; i++) {
-            var collect:CollectFile = Handlers.collects[i];
-            if( !collect ) {
-                var q = collectFiles[i];
-                q.n = i;
-                Handlers.collects[i] = new CollectFile(q);
-            }
+        if( workersLoaded ) return;
+        Handlers.workers = new Array();
+        var workersLoaded = 0;
+        var i;
+        for(i = 0; i < replaceFiles.length; i++){
+            Handlers.workers[workersLoaded] = new ReplaceFile(replaceFiles[i],i,workersLoaded++);
         }
-    
-        for(var i = 0; i < replaceFiles.length; i++){
-            var replacer:ReplaceFile = Handlers.replacers[i];
-            if( !replacer ) {
-                var q = replaceFiles[i];
-                q.n = i;
-                Handlers.replacers[i] = new ReplaceFile(q);
-            }
+        for(i = 0; i < collectFiles.length; i++){
+            Handlers.workers[workersLoaded] = new CollectFile(collectFiles[i],i,workersLoaded++);
         }
-    
-        for(var i = 0; i < cacheFiles.length; i++){
-            var cache:CacheFile = Handlers.caches[i];
-            if( !cache ) {
-                var q = cacheFiles[i];
-                q.n = i;
-                Handlers.caches[i] = new CacheFile(q);
-            }
+        for(i = 0; i < cacheFiles.length; i++){
+            Handlers.workers[workersLoaded] = new CacheFile(cacheFiles[i],i,workersLoaded++);
         }
-        Handlers.isLoaded = 1;
-        alert('initWorkers',Handlers);
-    }
-    
-    static function LoadReplaceFile(oSession: Session):boolean {
-        for(var i = 0; i < replaceFiles.length; i++){
-            var replacer:ReplaceFile = Handlers.replacers[i];
-            if( replacer.loadResponse(oSession) ) return true;
-        }
-        return false;
-    }
-
-    static function LoadCollectFile(oSession: Session):boolean {
-        for(var i = 0; i < collectFiles.length; i++) {
-            var collect:CollectFile = Handlers.collects[i];
-            if( collect.loadResponse(oSession) ) return true;
-        }
-        return false;
-    }
-        
-    static function LoadCacheFile(oSession: Session):boolean {
-        for(var i = 0; i < cacheFiles.length; i++){
-            var cacher:CacheFile = Handlers.caches[i];
-            if( cacher.loadResponse(oSession) ) return true;
-        }
-        return false;
+        Handlers.workersLoaded = workersLoaded;
+        alert('load workers: '+workersLoaded,'');
     }
 
     // The following snippet demonstrates a custom-bound column for the Web Sessions list.
@@ -230,7 +196,7 @@ class Handlers {
     
     public static BindUIColumn("Time", 60)
     function FillTimeColumn(oS: Session): String {
-        var d:double = (oS.Timers.ServerDoneResponse.ToBinary() - oS.Timers.ClientBeginRequest.ToBinary())/10000;
+        var d:double = (oS.Timers.ServerDoneResponse.Ticks - oS.Timers.ClientBeginRequest.Ticks)/10000;//(1000*1000*10);
         var n = d.toString().replace(/\..*$/,'');  // Math.Round(d,0)
         if( d > 24 * 60 * 60 *1000 ) n = '-';
         return n;
@@ -238,179 +204,286 @@ class Handlers {
     
     public static BindUIColumn("info", 200)
     function FillinfoColumn(oS: Session): String {
-        var n = '';
-        if( typeof(oS['_#replace'])!='undefined' ){
-            n = '[replace rule '+oS['_#replace']+'] '+oS['_#info'];
+        var text = '';
+        if( oS['_#info'] !== undefined ){
+            if( oS["_#error"] == true ){
+                text = 'ERROR';
+                oS["ui-backcolor"] = "#aa5555";
+                oS["ui-color"] = "#aaeeee";
+                oS["ui-bold"] = true;
+                text += oS["_#error"];
+            }
+            text += oS['_#info'];
         }
-        if( typeof(oS['_#collect'])!='undefined' ){
-            n = '[collect rule '+oS['_#collect']+'] '+oS['_#info'];
-        }
-        if( typeof(oS['_#cache'])!='undefined' ){
-            n = '[cache rule '+oS['_#cache']+'] '+oS['_#info'];
-        }
-        
-        if( oS["_#error"] ){
-            oS["ui-backcolor"] = "#aa5555";
-            oS["ui-color"] = "#aaeeee";
-            oS["ui-bold"] = true;
-            n += oS["_#error"];
-        }
-        
-        return n;
-    }
-        
+        return text;
+    }        
 
-    
     static function OnBeforeRequest(oSession: Session) {
-        if( LoadReplaceFile(oSession) ) return;
-        if( LoadCollectFile(oSession) ) return;
-        if( LoadCacheFile(oSession) ) return;
-        
-        // var arr = Handlers.arr;
-        // arr.push(oSession.fullUrl);
-        // if(arr.length > 20) {
-        //     wlog(arr.join('\n') + '\n=====================================\n');
-        //     Handlers.arr = new Array();
-        // }
-        if(0){
-            oSession.oRequest.headers.Remove("If-None-Match");
-            oSession.oRequest.headers.Remove("If-Modified-Since");
-            oSession.oRequest["Pragma"] = "no-cache";
-            //oSession["ui-bold"]="QuickExec";
-            oSession["ui-backcolor"] = "Lavender";
-            //oSession["ui-italic"] = "yup";
-            //oSession["ui-color"] = "red";
-            
-        
-            oSession.utilCreateResponseAndBypassServer();
-            oSession.responseCode = 304;
-            oSession["ui-backcolor"] = "Lavender";
-        }
+        var workers = Handlers.workers;
+        var workersLoaded = Handlers.workersLoaded;
+        for(var i = 0; i < workersLoaded; i++){
+            var w:Worker = workers[i];
+            if( w.loadResponse(oSession) ) return;
+        }       
     }
-
 
     static function OnDone(oSession: Session) {
-        var type = oSession['_#onDoneFnc'];
-        if( type == 'cache' ){
-            var i:int = oSession['_#cache'];
-            var cache:CacheFile = Handlers.caches[i];
-            cache.onDoneFnc(oSession);
-        }else if( type == 'collect' ){
-            var j:int = oSession['_#collect'];
-            var collect:CollectFile = Handlers.collects[j];
-            collect.onDoneFnc(oSession);
+        var workerN = oSession['_#onDoneWorkerN'];
+        if( workerN !== undefined ){
+            var w:Worker = Handlers.workers[workerN];
+            w.onDoneFnc(oSession);
         }
     }
 }
 
-
-class ReplaceFile {
-    private var opt;
-    private var type;
-    function ReplaceFile(opt: Object) {
-        opt.name = 'ReplaceFile options' + opt.n;
+class Worker {
+    protected var opt;
+    
+    function Worker(opt: Object, type:String, ruleN:int, workerN:int) {
+        opt.type = type;
+        opt.ruleN = ruleN;
+        opt.workerN = workerN;
+        opt.name = type + ' options' + ruleN;
         this.opt = checkOptions(opt);
+    }
+    
+    public function loadResponse(oSession:Session):boolean {
+        alert('какого хрена Worker',oSession);
+        return false;
+    }
+    
+    public function onDoneFnc(oSession:Session):boolean {
+        return false;
+    }
+    
+    public function setInfo(oSession:Session, text:String, isError:boolean):void {
+        var opt = this.opt;
+        oSession['_#info'] = '['+ opt.type +' rule ' + opt.ruleN + '] '+text;
+        oSession['_#error'] = isError;
+    }
+        
+    public function getInfo():String {
+        var opt = this.opt;
+        var text = '['+ opt.type +' rule ' + opt.ruleN + ']';
+        return text;
+    }
+}
+
+class ReplaceFile extends Worker {
+    private var type;
+    
+    function ReplaceFile(opt: Object, ruleN:int, workerN:int) {
+        super(opt, 'replace', ruleN, workerN);
         var to = this.opt.to
         if( /^[a-z]:(\\|\/)/i.test(to) ) {
             this.type = 'localfile';
         }else{
-            alert('не верно задан параметр to',this.opt);
+            alert('не верно задан параметр to',this.getInfo());
         }
     }
+    
     public function loadResponse(oSession: Session):boolean {
         if( !testFile(this.opt, oSession) ) return false;
         var url = oSession.fullUrl;
         var to = this.opt.to
         var newUrl = url.replace( this.opt.from, to);
-        if( newUrl == url ) return false;
-        oSession['_#replace'] = this.opt.n;
+        if( newUrl === url ) return false;
         if( this.type == 'localfile' ) {
             var filePath = newUrl.replace(/\?.*$/,'');
             var b:boolean = oSession.LoadResponseFromFile(filePath);
             if( !b ){
-                setRowStyle(this.opt.onError,oSession);
-                oSession["_#error"] = 'err load from file: ' + filePath;
+                setRowStyle(this.opt.onError, oSession);
+                this.setInfo(oSession,'err load from file: ' + filePath, true);
             }else{
-                setRowStyle(this.opt.onReplace,oSession);
-                oSession["_#info"] = filePath;
+                setRowStyle(this.opt.onReplace, oSession);
+                this.setInfo(oSession, 'file: ' + filePath, false);
             }
-            oSession['_#responseIsAlreadyLoaded'] = 1;
         } else {
-            setRowStyle(this.opt.onReplace,oSession);
-            oSession.fullUrl = newUrl;
-            oSession["_#info"] = newUrl;
-            oSession['_#responseIsAlreadyLoaded'] = 0;
+            setRowStyle(this.opt.onReplace, oSession);
+            this.setInfo(oSession,'url: ' + newUrl, false);
         }
         return true;
     }
 }
 
-class CollectFile {
-    private var filesList = new Array();
+class CollectFile extends Worker  {
     private var filesLoaded = Object();
-    private var opt;
+    private var filesLoadedArr = new Array();
+    private var filesNeedLoad = Object();
+    private var filesNeedLoadArr = new Array();
+    private var oneFile:String = '';
+    private var locked = false;
 
-    function CollectFile(opt: Object) {
-        opt.name = 'CollectFile options' + opt.n;
-        this.opt = checkOptions(opt);
+    function CollectFile(opt: Object, ruleN:int, workerN:int) {
+        super(opt, 'collect', ruleN, workerN);
+        var to = this.opt.to;
+        if( !to || !/^[a-z]:(\\|\/)/i.test(to) ) {
+            alert('не верно задан параметр to',this.getInfo());
+        }
+        this.oneFile = to + '/oneFileForAll';
+        this.clearCollect();
+        
+        var dt:DateTime = System.IO.File.GetCreationTime(this.oneFile);       
+        var t1 = dt.Ticks;
+        var t2 = dt.Ticks - 1000*1000*10;
+        alert(
+            '\ndt: '+ t1 + 
+            '\ndt: '+ t2 + 
+            '\ndt: '+ new DateTime(t1) + 
+            '\ndt: '+ new DateTime(t2) + 
+            '','');
     }
-    public function addFile(oSession: Session):void {
-        oSession.utilDecodeResponse();
+    
+    public function clearCollect() {
+        this.filesLoaded = Object();
+        this.filesLoaded.length = 0;
+        WriteToFile(this.oneFile,'','w'); // очищаем файл куда будем все собирать
+    }
+    
+    // updateCollect - собирает все файлы из filesNeedLoadArr в один this.oneFile
+    public function updateCollect() {
+        if( this.locked === true ) return; // если уже собираем файлы в один
+        this.locked = true;
+        if( !fileExists(this.oneFile) ) {
+            this.clearCollect();
+        }
+        
+        // собираем не чаще чем один раз в 20 сек
+        var dt = System.IO.File.GetLastWriteTime(this.oneFile).Ticks + 1000*1000*10 * 20; // 1000*1000*10 - 1 секунда
+        var needTimeout = DateTime.Now.Ticks;
+        if( dt > needTimeout ){
+            this.locked = false;
+            return;
+        }
+        
+        // alert('updateCollect',this.filesNeedLoadArr);
+        alert('Collect files '+this.filesNeedLoadArr.length, this.filesNeedLoadArr.slice(0,10) );
+        var buffer = '';
+        var loaded = 0;
+        for(var i=0; i < this.filesNeedLoadArr.length; i++ ) {
+            var filePath = this.filesNeedLoadArr[i];
+            var fullFilePath = this.opt.to + filePath;
+            if( fileExists(fullFilePath) ) {
+                buffer += System.IO.File.ReadAllText(fullFilePath, System.Text.Encoding.UTF8);
+                loaded++;
+                this.filesLoaded[filePath] = true; // ставим флаг что этот файл уже загружен в набор
+                this.filesLoaded.length++;
+                this.filesLoadedArr.push(filePath);
+            }
+        }
+        if( loaded > 0 ) WriteToFile(this.oneFile, buffer,'a'); // дописываем в файл 
+        alert('Collected files '+this.filesLoadedArr.length, this.filesLoadedArr.slice(0,10) );
 
-        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
-        return;
+        this.filesNeedLoad = Object();
+        this.filesNeedLoadArr = new Array(); 
+        this.locked = false;
     }
+    
     public function loadResponse(oSession: Session):boolean {
         if( !testFile(this.opt, oSession) ) return false;
-        oSession['_#collect'] = this.opt.n;
-        oSession['_#responseIsAlreadyLoaded'] = 1;
-        return false;
-        oSession.utilDecodeResponse();
+        
+        var filePath = getFileSavePathFromUrl(oSession,'.collect');
+        
+        if( this.locked === false ) { // если сейчас не идет сборка файлов в один
+            if( this.filesNeedLoadArr.length > 0 ) this.updateCollect(); // пробуем собрать
 
-        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
-        return false;
-    }
-    public function onDoneFnc(oSession: Session):boolean {
-        oSession.utilDecodeResponse();
-        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
-        WriteToFile(oSession['_#cachepath'],oBody,'w');
-        alert(oSession['_#cachepath'],this.opt.name);
-    }
-}
-
-
-class CacheFile {
-    private var opt;
-    function CacheFile(opt: Object) {
-        opt.name = 'CacherFile options' + opt.n;
-        this.opt = checkOptions(opt);
-    }
-    public function loadResponse(oSession: Session):boolean {
-        if( !testFile(this.opt, oSession) ) return false;
-        oSession['_#cache'] = this.opt.n;
-        var filePath = this.opt.to + getFileSavePathFromUrl(oSession,'.cache');
-        if( fileExists(filePath) ) {
-            setRowStyle(this.opt.onLoadFromCache, oSession);
-            oSession["_#info"] = 'load: '+filePath;
-            oSession.LoadResponseFromFile(filePath);
+            if( this.filesLoaded[filePath] !== undefined ) { // если файл уже в наборе
+                if( !fileExists(this.oneFile) ) {
+                    this.clearCollect();
+                }else{
+                    setRowStyle(this.opt.onLoadFromCollect, oSession);
+                    var len = this.filesLoaded.length;
+                    this.setInfo(oSession, 'load from collect('+len+' files): '+this.oneFile, false);
+                    oSession.LoadResponseFromFile(this.oneFile);
+                    return true;
+                }
+            }
+        
+            if( this.filesNeedLoad[filePath] === undefined ) {
+                this.filesNeedLoad[filePath] = true; // ставим флаг что файл планируется добавить в набор
+                this.filesNeedLoadArr.push(filePath);
+            }
+        }
+            
+        setRowStyle(this.opt.onSaveToCollect, oSession);
+        this.setInfo(oSession, 'wait for add collect from: '+ this.opt.to + filePath, false);
+        
+        filePath = this.opt.to + filePath;
+        
+        if( fileExists(filePath) ) { // если его уже сохранили для добавления
+            oSession.LoadResponseFromFile(filePath); // можно его и вернуть а в след проходе он уже будет в общей куче
             return true;
         }
-        setRowStyle(this.opt.onSaveToCache, oSession);
-        oSession['_#info'] = 'add: '+filePath;
-        oSession['_#cachepath'] = filePath;
-        oSession['_#onDoneFnc'] = 'cache';
+        
+        oSession['_#collectpath'] = filePath;
+        oSession['_#onDoneWorkerN'] = this.opt.workerN;
         return true;
     }
+    
+    public function onDoneFnc(oSession: Session):boolean {
+        var filePath = oSession['_#collectpath'];
+        if( fileExists(filePath) ) return true;        
+        oSession.utilDecodeResponse();
+        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+        oBody = '\n\n/**** file: '+ oSession.fullUrl + ' ****/\n' + oBody;
+        return WriteToFile(filePath, oBody,'w');
+    }
+
+}
+
+class CacheFile extends Worker {
+    
+    function CacheFile(opt: Object, ruleN:int, workerN:int) {
+        super(opt, 'cache', ruleN, workerN);
+    }
+    
+    public function loadResponse(oSession: Session):boolean {
+        if( !testFile(this.opt, oSession) ) return false;
+        var filePath = this.opt.to + getFileSavePathFromUrl(oSession,'.cache');
+        if( fileExists(filePath) ) {
+            var b = oSession.LoadResponseFromFile(filePath);
+            if(b) {
+                setRowStyle(this.opt.onLoadFromCache, oSession);
+                this.setInfo(oSession, 'load: '+filePath, false);
+                return true;
+            }else{
+                this.setInfo(oSession, 'cant load: '+filePath, true);
+            }
+        }else{
+            setRowStyle(this.opt.onSaveToCache, oSession);
+            this.setInfo(oSession, 'try save: '+filePath, false);
+        }
+        oSession['_#cachepath'] = filePath;
+        oSession['_#onDoneWorkerN'] = this.opt.workerN;
+        return true;
+    }
+    
     public function onDoneFnc(oSession: Session):boolean {
         var outFilePath = oSession['_#cachepath'];
-        if( fileExists(outFilePath) ) return true;
+        if( fileExists(outFilePath) ) return true;        
         oSession.utilDecodeResponse();
+        if( this.opt.saveWithHeaders===true ){
+            oSession.SaveResponse(outFilePath,false);
+            return true;
+        }
         var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
         return WriteToFile(outFilePath,oBody,'w');
     }
 }
 
-function alert(msg,obj:Object):void {
+function alert(msg,obj):void {
     if(obj && obj.name) msg += '\nname: '+obj.name;
-    FiddlerObject.alert(msg+'\n'+obj);
+    var dump:String = obj;
+    if ( obj instanceof Array) dump = dumpArray(obj);
+    FiddlerObject.alert(msg+'\n'+ dump);
 }
+
+function dumpArray(arr:Array):String {
+    var s = '[';
+    for(var i=0; i < arr.length; i++ ) {
+        s += '\n  '+ String(arr[i]) +',';
+    }
+    if ( i > 0 ) s += '\n';
+    return s + ']';
+}
+
