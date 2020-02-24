@@ -1,66 +1,67 @@
+// после копипаста нажми CTRL + Z  - что бы восстановить форматирование
 
 var replaceFiles = [
-        {   from:  new RegExp('^.*/resources/Vdom/_private/Synchronizer/resources/Debug0.js'),
-            to: 'c:/fiddler/replace/Debug.js'
-            // includes: new RegExp('Debug.js'),
-            // excludes: new RegExp('Debug1.js')
-        },
         {   from:  new RegExp('^.*/resources/(.*/)(.+)$','i'),
-            to: 'c:/fiddler/replace/$1$2',
+            to: 'm:/fiddler/replace/$1$2',
             includes: [ new RegExp('/Debug000.js') ],
-            onReplace:  { hideRow: false, backcolor: '#17AF13', color: '#000', bold: true  }, // стили строки при успешной подмене файла
-            onError:    { hideRow: false, backcolor: '#550000', color: '#000', bold: true  }  // стили строки при ошибках при подмене файла
+            styleReplace:  { hideRow: false, backcolor: '#17AF13', color: '#000', bold: true  }, // стили строки при успешной подмене файла
+            styleError:    { hideRow: false, backcolor: '#550000', color: '#000', bold: true  }  // стили строки при ошибках при подмене файла
         }
     ];
 
-var cacheFiles = [
-        {
-            includes: [ new RegExp('\.ru/cdn/.*\\.js',''),
-                        new RegExp('\.ru/cdn/.*\\.woff2','') ],
-            to: 'g:/fiddler/cache_cdn/',
-            onSaveToCache:   { hideRow: false, backcolor: '#F9A900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
-        },
-    
-        {
-            includes: [ new RegExp('\\.png$') ],
-            to: 'g:/fiddler/cache_images/',
-            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
-        },
-
-        {
-            includes: [ new RegExp('/resources/Vdom/.*\\.(js|wml|css)'),
-                        new RegExp('/resources/Controls/.*\\.(js|wml|css)'),
-                        new RegExp('/resources/Browser/.*\\.js'),
-                        new RegExp('/resources/Router/.*\\.(js|wml)'),
-                        new RegExp('/resources/UI/.*\\.(js|wml)'),
-                        new RegExp('/resources/WS\\.Core/.*'),
-                        new RegExp('/resources/AuthFramework/.*'),
-                        new RegExp('/resources/ParametersWebAPI/.*'),
-                        new RegExp('/resources/EngineLanguage/.*'),
-                        new RegExp('/resources/Env/.*\\.js'),
-                        new RegExp('/resources/I18n/.*\\.js'),
-                        new RegExp('/resources/View/.*\\.js'),
-                        new RegExp('/resources/SBIS3\\.Plugin/.*\\.js'),
-                        new RegExp('/resources/Types/.*\\.js') ],
-            to: 'g:/fiddler/cache_other/',
-            saveWithHeaders: true,
-            onSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
-            onLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
-        },
-
-    ];
-
+// настройки сборщика файлов в один тут задаем какие файлы и куда собирать
+//  после первой загрузки он сохраняет каждый файл отдельно а после повторного запроса - собирает содержимое этих файлов в один
 var collectFiles = [
-        {   
-            to: 'g:/fiddler/collectFiles/',  // куда сохранять файлы которые после будут собираться в один
-            includes: [ new RegExp('/resources/.*\\.js\\?')  ],
-            excludes: [ new RegExp('/resources/Guest/')  ],
-            onSaveToCollect:   { hideRow: false, backcolor: '#F95500', color: '#000', bold: true  }, // стили строки до загрузки
-            onLoadFromCollect: { hideRow: false, backcolor: '#A55589', color: '#000', bold: false }  // стили строки при загрузке
+        {  
+            to: 'm:/collect_types/',
+            includes: [ new RegExp('\\.sbis\\.ru.*/resources/Types/.*\\.js\\?')  ],
+            styleSaveToCollect:   { hideRow: false, backcolor: '#F95500', color: '#000', bold: true  }, // стили строки до загрузки
+            styleLoadFromCollect: { hideRow: false, backcolor: '#A55589', color: '#000', bold: false }  // стили строки при загрузке
+        },
+   
+        {  
+            to: 'm:/collect_all/',
+            includes: [ new RegExp('\\.sbis\\.ru.*/resources/Controls/.*\\.js\\?')  ],
+            excludes: [ new RegExp('\\.sbis\\.ru.*/resources/(bundles|contents|router)\\.js')  ],
+            styleSaveToCollect:   { hideRow: false, backcolor: '#F95500', color: '#000', bold: true  }, // стили строки до загрузки
+            styleLoadFromCollect: { hideRow: false, backcolor: '#A55589', color: '#000', bold: false }  // стили строки при загрузке
         },
     ];
+
+var cacheFiles = [
+   
+        { // сохраняем сам страницы что бы не ждать по 2-7сек(иногда и 20+сек) загрузки
+            includes: [ new RegExp('pre-test-n.sbis.ru/5cb2235b-6ce5-453d-8f48-3abf5edd3c57'),
+                        new RegExp('pre-test-n.sbis.ru/661d219b-5193-469a-babb-b772d757f301') ],
+            to: 'm:/cache_pages/',
+            saveWithHeaders: true,
+            styleSaveToCache:   { hideRow: false, backcolor: '#F9A900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            styleLoadFromCache: { hideRow: false, backcolor: '#F5EB89', color: '#000', bold: true  }  // стили строки при загрузке из кэша
+        },
+   
+        { // картинки/шрифты и прочие статичные ресурсы
+            includes: [ new RegExp('\\.sbis\\.ru/.*\\.(png|woff2|jpg|jpeg)$'),
+                        new RegExp('\\.sbis\\.ru/cdn/.*\\.js') ],
+            excludes: [ new RegExp('/geoserver/gwc/') ],
+            to: 'm:/cache_static/',
+            saveWithHeaders: true,  // картинкам шрифтам тоже надо сохранять заголовки!
+            styleSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: false }, // стили строки до загрузки из кэша
+            styleLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+   
+        /*
+        {
+            includes: [ new RegExp('\\.sbis\\.ru/resources/') ],
+            to: 'm:/cache_other/',
+            saveWithHeaders: true,
+            styleSaveToCache:   { hideRow: false, backcolor: '#F9F900', color: '#000', bold: true  }, // стили строки до загрузки из кэша
+            styleLoadFromCache: { hideRow: true,  backcolor: '#F5EB89', color: '#000', bold: false }  // стили строки при загрузке из кэша
+        },
+        */
+
+    ];
+
+
 
 // testOptions - проверяет каждую опцию из replaceFiles/collectFiles/cacheFiles
 //               могут быть заданы параметры includes: RegExp[], excludes: RegExp[],
@@ -161,15 +162,15 @@ class Handlers {
     // набор обработчиков для каждого типа
     static public var workers = new Array();
     static public var workersLoaded = 0;
-    
+   
     static function Main() {
         var i:int;
         var today: Date = new Date();
         FiddlerObject.StatusText = " CustomRules.js was loaded at: " + today;
-        initWorkers();
+        loadWorkers();
     }
 
-    static function initWorkers() {
+    static function loadWorkers() {
         if( workersLoaded ) return;
         Handlers.workers = new Array();
         var workersLoaded = 0;
@@ -184,7 +185,7 @@ class Handlers {
             Handlers.workers[workersLoaded] = new CacheFile(cacheFiles[i],i,workersLoaded++);
         }
         Handlers.workersLoaded = workersLoaded;
-        alert('load workers: '+workersLoaded,'');
+        alert('workers loaded: '+workersLoaded,'');
     }
 
     // The following snippet demonstrates a custom-bound column for the Web Sessions list.
@@ -193,7 +194,7 @@ class Handlers {
     function FillMethodColumn(oS: Session): String {
         return oS.RequestMethod;
     }
-    
+   
     public static BindUIColumn("Time", 60)
     function FillTimeColumn(oS: Session): String {
         var d:double = (oS.Timers.ServerDoneResponse.Ticks - oS.Timers.ClientBeginRequest.Ticks)/10000;//(1000*1000*10);
@@ -201,7 +202,7 @@ class Handlers {
         if( d > 24 * 60 * 60 *1000 ) n = '-';
         return n;
     }
-    
+   
     public static BindUIColumn("info", 200)
     function FillinfoColumn(oS: Session): String {
         var text = '';
@@ -219,12 +220,13 @@ class Handlers {
     }        
 
     static function OnBeforeRequest(oSession: Session) {
+        oSession.fullUrl = oSession.fullUrl.replace(/\$$/,'');
         var workers = Handlers.workers;
         var workersLoaded = Handlers.workersLoaded;
         for(var i = 0; i < workersLoaded; i++){
             var w:Worker = workers[i];
             if( w.loadResponse(oSession) ) return;
-        }       
+        }      
     }
 
     static function OnDone(oSession: Session) {
@@ -237,8 +239,8 @@ class Handlers {
 }
 
 class Worker {
-    protected var opt;
-    
+    protected var opt:Object;
+   
     function Worker(opt: Object, type:String, ruleN:int, workerN:int) {
         opt.type = type;
         opt.ruleN = ruleN;
@@ -246,22 +248,33 @@ class Worker {
         opt.name = type + ' options' + ruleN;
         this.opt = checkOptions(opt);
     }
-    
+   
     public function loadResponse(oSession:Session):boolean {
         alert('какого хрена Worker',oSession);
         return false;
     }
-    
+   
     public function onDoneFnc(oSession:Session):boolean {
         return false;
     }
-    
+   
     public function setInfo(oSession:Session, text:String, isError:boolean):void {
         var opt = this.opt;
         oSession['_#info'] = '['+ opt.type +' rule ' + opt.ruleN + '] '+text;
         oSession['_#error'] = isError;
     }
-        
+   
+    public function setStyle(oSession:Session, style: Object):void {
+        if(!style) return;
+        if(style.hideRow) {
+            oSession['ui-hide'] = true;
+            return;
+        }
+        oSession["ui-color"] = style.color;
+        if(style.bold) oSession["ui-bold"] = style.bold;
+        oSession["ui-backcolor"] = style.backcolor;
+    }
+       
     public function getInfo():String {
         var opt = this.opt;
         var text = '['+ opt.type +' rule ' + opt.ruleN + ']';
@@ -271,7 +284,7 @@ class Worker {
 
 class ReplaceFile extends Worker {
     private var type;
-    
+   
     function ReplaceFile(opt: Object, ruleN:int, workerN:int) {
         super(opt, 'replace', ruleN, workerN);
         var to = this.opt.to
@@ -281,7 +294,7 @@ class ReplaceFile extends Worker {
             alert('не верно задан параметр to',this.getInfo());
         }
     }
-    
+   
     public function loadResponse(oSession: Session):boolean {
         if( !testFile(this.opt, oSession) ) return false;
         var url = oSession.fullUrl;
@@ -292,172 +305,207 @@ class ReplaceFile extends Worker {
             var filePath = newUrl.replace(/\?.*$/,'');
             var b:boolean = oSession.LoadResponseFromFile(filePath);
             if( !b ){
-                setRowStyle(this.opt.onError, oSession);
+                setRowStyle(this.opt.styleError, oSession);
                 this.setInfo(oSession,'err load from file: ' + filePath, true);
             }else{
-                setRowStyle(this.opt.onReplace, oSession);
+                setRowStyle(this.opt.styleReplace, oSession);
                 this.setInfo(oSession, 'file: ' + filePath, false);
             }
         } else {
-            setRowStyle(this.opt.onReplace, oSession);
+            setRowStyle(this.opt.styleReplace, oSession);
             this.setInfo(oSession,'url: ' + newUrl, false);
         }
         return true;
     }
 }
 
-class CollectFile extends Worker  {
-    private var filesLoaded = Object();
+class Collect {
+    private var toPath = '';
+    private var host = '';
+    private var file = ''; // файл в который собираем все что сюда приходит
+    private var locked = false;  // флаг что идет сборка
+    private var filesCount = 0;
+    private var fileLastUpdate: long;
+    static  var updateTimeout = 10; // не чаще чем раз в 10 секунд обновляем этот файл! 
+    private var filesLoaded = new Object();
     private var filesLoadedArr = new Array();
-    private var filesNeedLoad = Object();
+    private var filesNeedLoad = new Object();
     private var filesNeedLoadArr = new Array();
-    private var oneFile:String = '';
-    private var locked = false;
+    
+    function Collect(opt: Object, host:String) {
+        this.toPath = opt.to;
+        this.file = this.toPath + host.replace(/(:|\/\/)/,'_') + '.allfiles';     
+        this.clearCollect();
+    }
+    
+    public function clearCollect() {
+        this.filesLoaded = Object();
+        this.filesLoadedArr = new Array();
+        this.filesCount = 0;
+        WriteToFile(this.file,'','w'); // очищаем файл куда будем все собирать
+        this.fileLastUpdate = System.IO.File.GetLastWriteTime(this.file).Ticks + 1000*1000*10 * Collect.updateTimeout; // 1000*1000*10 - 1 секунда
+    }
+    
+    // updateCollect - собирает все файлы из filesNeedLoadArr в один this.file
+    public function updateCollect(oSession: Session) {
+        if( this.filesNeedLoadArr.length === 0 ) return;
+        if( this.locked === true ) return; // если уже собираем файлы в один
+        if( this.fileLastUpdate > DateTime.Now.Ticks ) return; // ничего не обновляем т.к. ещё не пришло время!
+
+        this.locked = true;
+        var filesNeedLoadArr = this.filesNeedLoadArr;
+        this.filesNeedLoadArr = new Array();
+        this.filesNeedLoad = Object();
+        
+        if( !fileExists(this.file) ) {
+            this.clearCollect();
+        }
+       
+        // alert('собираем в один файл '+this.file+' файлы: '+ filesNeedLoadArr.length, filesNeedLoadArr.slice(0,10) );
+        var buffer = '';
+        var loaded = 0;
+        for(var i=0; i < filesNeedLoadArr.length; i++ ) {
+            var filePath = filesNeedLoadArr[i];
+            var fullFilePath = this.toPath + filePath;
+            if( fileExists(fullFilePath) ) {
+                buffer += System.IO.File.ReadAllText(fullFilePath, System.Text.Encoding.UTF8);
+                loaded++;
+                this.filesLoaded[filePath] = true; // ставим флаг что этот файл уже загружен в набор
+                this.filesLoadedArr.push(filePath);
+            }
+        }
+        if( loaded > 0 ) WriteToFile(this.file, buffer,'a'); // дописываем в файл
+        // alert('в файл '+this.file+' было собрано файлов: '+i, filesNeedLoadArr.slice(0,10) );
+        // alert('за время сборки было добавлено в очередь сборки файлов: '+this.filesNeedLoadArr.length, this.filesNeedLoadArr.slice(0,10) );
+        this.filesCount += loaded;
+        this.fileLastUpdate = System.IO.File.GetLastWriteTime(this.file).Ticks + 1000*1000*10 * Collect.updateTimeout; // 1000*1000*10 - 1 секунда
+
+        this.locked = false;
+    }
+    
+    public function loadResponse(oSession: Session):Object {
+        var filePath = getFileSavePathFromUrl(oSession,'.collect');
+
+        if( !this.locked ) { // если сейчас не собираем то можно добавлять файлы в очередь или возвращать собранный файл
+            if( this.filesLoaded[filePath] ) { // если файл уже загружен в один общий
+                oSession.LoadResponseFromFile(this.file);
+                return { load: true, loadFromCollect: true, info: 'load from('+this.filesCount+' files): '+this.file };
+            }
+        }
+        
+        if( this.filesNeedLoad[filePath] !== true ){
+            this.filesNeedLoad[filePath] = true;
+            this.filesNeedLoadArr.push(filePath);
+            this.updateCollect(oSession);
+        }
+        
+        var fullFilePath = this.toPath + filePath;
+        if( fileExists(fullFilePath) ) { // если его уже сохранили для сборки но ещё не собрали
+            oSession.LoadResponseFromFile(fullFilePath); // сейчас возвращаем то что сохранили а в след проходе он уже будет в общей куче
+            return { load: true, loadFromCollect: false, info: 'wait for add collect cached file: '+fullFilePath};
+        }
+        oSession['_#collectpath'] = fullFilePath;
+        return { load: false, loadFromCollect: false, info: 'wait for cache file: '+fullFilePath};
+    }
+    
+    public function onDoneFnc(oSession: Session):boolean {
+        var filePath = oSession['_#collectpath'];
+        if( !fileExists(filePath) ) {  
+            oSession.utilDecodeResponse();
+            var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
+            oBody = '\n\n/**** file: '+ oSession.fullUrl + ' ****/\n' + oBody;
+            WriteToFile(filePath, oBody,'w');
+        }
+    }
+}
+
+class CollectFile extends Worker  {
+    private var collects = new Object();  // для каждого хоста свой сборщик файлов
 
     function CollectFile(opt: Object, ruleN:int, workerN:int) {
         super(opt, 'collect', ruleN, workerN);
         var to = this.opt.to;
         if( !to || !/^[a-z]:(\\|\/)/i.test(to) ) {
             alert('не верно задан параметр to',this.getInfo());
-        }
-        this.oneFile = to + '/oneFileForAll';
-        this.clearCollect();
-        
-        var dt:DateTime = System.IO.File.GetCreationTime(this.oneFile);       
+            return;
+        }      
+        /*********
+        var dt:DateTime = System.IO.File.GetCreationTime(this.oneFile);      
         var t1 = dt.Ticks;
         var t2 = dt.Ticks - 1000*1000*10;
         alert(
-            '\ndt: '+ t1 + 
-            '\ndt: '+ t2 + 
-            '\ndt: '+ new DateTime(t1) + 
-            '\ndt: '+ new DateTime(t2) + 
+            '\ndt: '+ t1 +
+            '\ndt: '+ t2 +
+            '\ndt: '+ new DateTime(t1) +
+            '\ndt: '+ new DateTime(t2) +
             '','');
+        **********/
     }
-    
-    public function clearCollect() {
-        this.filesLoaded = Object();
-        this.filesLoaded.length = 0;
-        WriteToFile(this.oneFile,'','w'); // очищаем файл куда будем все собирать
-    }
-    
-    // updateCollect - собирает все файлы из filesNeedLoadArr в один this.oneFile
-    public function updateCollect() {
-        if( this.locked === true ) return; // если уже собираем файлы в один
-        this.locked = true;
-        if( !fileExists(this.oneFile) ) {
-            this.clearCollect();
-        }
-        
-        // собираем не чаще чем один раз в 20 сек
-        var dt = System.IO.File.GetLastWriteTime(this.oneFile).Ticks + 1000*1000*10 * 20; // 1000*1000*10 - 1 секунда
-        var needTimeout = DateTime.Now.Ticks;
-        if( dt > needTimeout ){
-            this.locked = false;
-            return;
-        }
-        
-        // alert('updateCollect',this.filesNeedLoadArr);
-        alert('Collect files '+this.filesNeedLoadArr.length, this.filesNeedLoadArr.slice(0,10) );
-        var buffer = '';
-        var loaded = 0;
-        for(var i=0; i < this.filesNeedLoadArr.length; i++ ) {
-            var filePath = this.filesNeedLoadArr[i];
-            var fullFilePath = this.opt.to + filePath;
-            if( fileExists(fullFilePath) ) {
-                buffer += System.IO.File.ReadAllText(fullFilePath, System.Text.Encoding.UTF8);
-                loaded++;
-                this.filesLoaded[filePath] = true; // ставим флаг что этот файл уже загружен в набор
-                this.filesLoaded.length++;
-                this.filesLoadedArr.push(filePath);
-            }
-        }
-        if( loaded > 0 ) WriteToFile(this.oneFile, buffer,'a'); // дописываем в файл 
-        alert('Collected files '+this.filesLoadedArr.length, this.filesLoadedArr.slice(0,10) );
 
-        this.filesNeedLoad = Object();
-        this.filesNeedLoadArr = new Array(); 
-        this.locked = false;
-    }
-    
     public function loadResponse(oSession: Session):boolean {
         if( !testFile(this.opt, oSession) ) return false;
-        
-        var filePath = getFileSavePathFromUrl(oSession,'.collect');
-        
-        if( this.locked === false ) { // если сейчас не идет сборка файлов в один
-            if( this.filesNeedLoadArr.length > 0 ) this.updateCollect(); // пробуем собрать
-
-            if( this.filesLoaded[filePath] !== undefined ) { // если файл уже в наборе
-                if( !fileExists(this.oneFile) ) {
-                    this.clearCollect();
-                }else{
-                    setRowStyle(this.opt.onLoadFromCollect, oSession);
-                    var len = this.filesLoaded.length;
-                    this.setInfo(oSession, 'load from collect('+len+' files): '+this.oneFile, false);
-                    oSession.LoadResponseFromFile(this.oneFile);
-                    return true;
-                }
-            }
-        
-            if( this.filesNeedLoad[filePath] === undefined ) {
-                this.filesNeedLoad[filePath] = true; // ставим флаг что файл планируется добавить в набор
-                this.filesNeedLoadArr.push(filePath);
-            }
-        }
-            
-        setRowStyle(this.opt.onSaveToCollect, oSession);
-        this.setInfo(oSession, 'wait for add collect from: '+ this.opt.to + filePath, false);
-        
-        filePath = this.opt.to + filePath;
-        
-        if( fileExists(filePath) ) { // если его уже сохранили для добавления
-            oSession.LoadResponseFromFile(filePath); // можно его и вернуть а в след проходе он уже будет в общей куче
-            return true;
+        var host = oSession.host;
+        var collect:Collect = this.collects[host];
+        if( collect === undefined ) {
+            collect = new Collect(this.opt, host);
+            this.collects[host] = collect;
         }
         
-        oSession['_#collectpath'] = filePath;
-        oSession['_#onDoneWorkerN'] = this.opt.workerN;
+        var style = this.opt.styleLoadFromCollect;
+        var res = collect.loadResponse(oSession);
+        
+        if( res.load === false ) {
+            oSession['_#onDoneWorkerN'] = this.opt.workerN;
+        }
+        if( res.loadFromCollect === false ) {
+            style = this.opt.styleSaveToCollect;
+        }
+        
+        this.setInfo(oSession, res.info, res.loadFromCollect);
+        this.setStyle(oSession, style);
+        
         return true;
     }
-    
+   
     public function onDoneFnc(oSession: Session):boolean {
-        var filePath = oSession['_#collectpath'];
-        if( fileExists(filePath) ) return true;        
-        oSession.utilDecodeResponse();
-        var oBody = System.Text.Encoding.UTF8.GetString(oSession.responseBodyBytes);
-        oBody = '\n\n/**** file: '+ oSession.fullUrl + ' ****/\n' + oBody;
-        return WriteToFile(filePath, oBody,'w');
+        var host = oSession.host;
+        var collect:Collect = this.collects[host];
+        if( collect === undefined ) {
+            alert('такого не должно было случиться!','обшибка!');
+            return true;
+        }
+        collect.onDoneFnc(oSession);
     }
 
 }
 
 class CacheFile extends Worker {
-    
+   
     function CacheFile(opt: Object, ruleN:int, workerN:int) {
         super(opt, 'cache', ruleN, workerN);
     }
-    
+   
     public function loadResponse(oSession: Session):boolean {
         if( !testFile(this.opt, oSession) ) return false;
         var filePath = this.opt.to + getFileSavePathFromUrl(oSession,'.cache');
         if( fileExists(filePath) ) {
             var b = oSession.LoadResponseFromFile(filePath);
             if(b) {
-                setRowStyle(this.opt.onLoadFromCache, oSession);
+                setRowStyle(this.opt.styleLoadFromCache, oSession);
                 this.setInfo(oSession, 'load: '+filePath, false);
                 return true;
             }else{
                 this.setInfo(oSession, 'cant load: '+filePath, true);
             }
         }else{
-            setRowStyle(this.opt.onSaveToCache, oSession);
+            setRowStyle(this.opt.styleSaveToCache, oSession);
             this.setInfo(oSession, 'try save: '+filePath, false);
         }
         oSession['_#cachepath'] = filePath;
         oSession['_#onDoneWorkerN'] = this.opt.workerN;
         return true;
     }
-    
+   
     public function onDoneFnc(oSession: Session):boolean {
         var outFilePath = oSession['_#cachepath'];
         if( fileExists(outFilePath) ) return true;        
@@ -486,4 +534,3 @@ function dumpArray(arr:Array):String {
     if ( i > 0 ) s += '\n';
     return s + ']';
 }
-
